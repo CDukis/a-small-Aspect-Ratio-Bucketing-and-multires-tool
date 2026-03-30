@@ -22,6 +22,9 @@ Aspect ratio bucketing will
 
 So what can the tool do for you here? Probably not much, but more than nothing.
 
+<img width="3833" height="884" alt="image" src="https://github.com/user-attachments/assets/439d825b-e500-4a2f-8e80-03ef3a26be43" />
+
+
 ## See what your images will scale to & recommended training resolution
 
 - load a folder and scan, to see what each image will scale to at any given training resolution with aspect ratio bucketing on. This basically just tells you what aspect ratio bucketing will do, in case you want to know beforehand
