@@ -52,3 +52,10 @@ For images larger than the training resolution, we take the opposite approach, l
 Buckets qualifying here were tried to keep somewhat sane, given how questionable the tool otherwise is. They only can be neighbouring buckets.  An image belonging to the 1.75 ratio bucket would only be padded to land in the 1.5 or 2 bucket, even if the 2.5 bucket might look juicy given its small pixel size.
 
 Usefulness: Could be somewhat more useful, depending on dataset and other settings, and if checking how much pixels get added.
+
+
+# installation and usage
+- download
+- install.bat
+- run.bat
+- browser opens, add folder play around
