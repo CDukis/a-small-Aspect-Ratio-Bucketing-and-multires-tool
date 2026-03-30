@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aspect Bucketing Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0e14;--surf:#161720;--surf2:#1d1e2b;--surf3:#22243a;
+  --border:#2a2c42;--border2:#363855;
+  --text:#d8daf0;--muted:#6b6e8a;--hint:#45475f;
+  --accent:#7c6eff;--accent-d:rgba(124,110,255,.18);
+  --green:#34d399;--green-d:rgba(52,211,153,.15);
+  --yellow:#fbbf24;--yellow-d:rgba(251,191,36,.15);
+  --red:#f87171;--red-d:rgba(248,113,113,.15);
+  --blue:#60a5fa;--blue-d:rgba(96,165,250,.15);
+  --r:8px;
+}
+body{background:var(--bg);color:var(--text);font:13px/1.5 system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── Header ── */
+.hdr{display:flex;align-items:center;gap:12px;padding:9px 18px;background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;row-gap:6px}
+.logo{font-size:14px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.logo span{color:var(--accent)}
+.pill{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px;gap:2px;flex-shrink:0}
+.pb{padding:4px 14px;border-radius:16px;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);background:transparent;transition:all .15s;white-space:nowrap}
+.pb.on{background:var(--accent);color:#fff}
+.mhint{font-size:11px;color:var(--muted)}
+.sp{flex:1}
+
+/* ── Settings ── */
+.settings{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:9px 18px;background:var(--surf2);border-bottom:1px solid var(--border);flex-shrink:0}
+.sf{display:flex;flex-direction:column;gap:3px}
+.sf label{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* combobox inputs & selects share same style */
+input[type=text],input[type=number],select{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);padding:5px 9px;font-size:12px;outline:none;
+  transition:border-color .15s;
+}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+/* combobox dropdown arrow colour fix (webkit) */
+input[list]{-webkit-appearance:none}
+.fw{width:min(300px,50vw)}
+.tw{width:88px}.qw{width:72px}
+
+/* ── Buttons ── */
+.btn{padding:5px 13px;border-radius:var(--r);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:600;background:var(--surf);color:var(--text);transition:all .15s;white-space:nowrap;line-height:1.4}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover:not(:disabled){opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Status / batch bars ── */
+.sbar{padding:5px 18px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);flex-shrink:0}
+.bbar{padding:7px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;display:none}
+#bprog{font-size:11px;color:var(--muted)}
+input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:pointer;vertical-align:middle}
+
+/* ── Grid ── */
+.gwrap{flex:1;overflow-y:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1px;background:var(--border)}
+.empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)}
+.big{font-size:32px;margin-bottom:10px}
+
+/* ── Card ── */
+.card{background:var(--surf);padding:13px;display:flex;flex-direction:column;gap:9px}
+.ctop{display:flex;gap:11px}
+.tbox{width:88px;height:88px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+.tbox img{max-width:100%;max-height:100%;object-fit:contain}
+.cmeta{flex:1;min-width:0}
+.cname{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.cdims{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* ── Per-card override fields ── */
+.covr{display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.covr label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.covr input[type=text]{width:78px;padding:2px 6px;font-size:11px;border-radius:5px}
+
+/* ── Info rows ── */
+.isec{border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:5px}
+.ir{display:flex;align-items:flex-start;gap:8px;font-size:11px}
+.il{color:var(--muted);width:108px;flex-shrink:0;padding-top:1px}
+.iv{color:var(--text);flex:1;line-height:1.5}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;vertical-align:middle;margin-left:3px}
+.bs{background:var(--green-d);color:var(--green)}
+.bw{background:var(--yellow-d);color:var(--yellow)}
+.bb{background:var(--blue-d);color:var(--blue)}
+.ba{background:var(--accent-d);color:var(--accent)}
+.br{background:var(--red-d);color:var(--red)}
+
+/* ── Action buttons ── */
+.cact{display:flex;gap:7px}
+.ab{flex:1;padding:6px 8px;border-radius:var(--r);border:1px solid var(--border2);cursor:pointer;font-size:11px;font-weight:700;background:var(--bg);color:var(--muted);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.3px}
+.ab:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-d)}
+.ab.sp-btn:hover:not(:disabled){border-color:var(--green);color:var(--green);background:var(--green-d)}
+.ab:disabled{opacity:.35;cursor:not-allowed}
+.ab.done{border-color:var(--green)!important;color:var(--green)!important;background:var(--green-d)!important}
+.ab.err{border-color:var(--red)!important;color:var(--red)!important;background:var(--red-d)!important}
+.ab.spin{opacity:.6;pointer-events:none}
+
+/* warn box */
+.wbox{background:var(--yellow-d);border:1px solid rgba(251,191,36,.3);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--yellow)}
+/* inline rec-T button */
+.rbtn{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;background:var(--blue-d);color:var(--blue);border:1px solid rgba(96,165,250,.3);cursor:pointer;margin-left:4px;line-height:1.6;vertical-align:middle;transition:all .12s}
+.rbtn:hover{background:var(--blue);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo">Aspect <span>Bucketing</span> Tool</div>
+  <div class="pill">
+    <button class="pb on" id="m1btn" onclick="setMode(1)">Fit within T</button>
+    <button class="pb" id="m2btn" onclick="setMode(2)">Minimal bucket</button>
+  </div>
+  <div class="mhint" id="mhint">pad / scale+pad so output has max side ≤ T</div>
+</div>
+
+<!-- Settings -->
+<div class="settings">
+  <div class="sf" style="flex:1;min-width:180px">
+    <label>Folder path</label>
+    <input type="text" id="folder" class="fw" placeholder="C:\images  or  /home/user/imgs" onkeydown="if(event.key==='Enter')scan()">
+  </div>
+  <button class="btn pri" onclick="scan()">▶ Scan</button>
+
+  <div class="sf">
+    <label>Training T — global</label>
+    <input type="text" class="tw" id="gT" list="Tlist" value="1024">
+    <datalist id="Tlist"></datalist>
+  </div>
+  <div class="sf">
+    <label>Quantization — global</label>
+    <input type="text" class="qw" id="gQ" list="Qlist" value="64">
+    <datalist id="Qlist">
+      <option value="8"><option value="16"><option value="32">
+      <option value="64"><option value="128"><option value="256"><option value="512">
+    </datalist>
+  </div>
+  <button class="btn" onclick="applyGlobal()">Apply to all</button>
+  <button class="btn" onclick="applyRecAll()" title="Set each image's T to its recommended value">Apply rec T to all</button>
+
+  <div class="sf">
+    <label>Rec T min</label>
+    <input type="text" class="tw" id="recMin" list="Tlist" value="512" oninput="recalcAll()">
+  </div>
+  <div class="sf">
+    <label>Rec T max</label>
+    <input type="text" class="tw" id="recMax" list="Tlist" value="4096" oninput="recalcAll()">
+  </div>
+  <div class="sf">
+    <label>Rec T step</label>
+    <input type="text" style="width:68px" id="recStep" list="Qlist" value="64" oninput="recalcAll()">
+  </div>
+
+  <div class="sf">
+    <label>Pad fill</label>
+    <select id="fill" style="height:30px">
+      <option value="0,0,0">Black</option>
+      <option value="255,255,255">White</option>
+      <option value="127,127,127">Gray 50%</option>
+    </select>
+  </div>
+
+  <button class="btn" onclick="sortBySize()" title="Sort images by total pixels (largest first)">Sort by size</button>
+  <button class="btn" onclick="sortAlpha()" title="Sort images alphabetically by filename">Sort A–Z</button>
+</div>
+
+<!-- Status -->
+<div class="sbar" id="sbar">Enter a folder path and click Scan.</div>
+
+<!-- Batch bar -->
+<div class="bbar" id="bbar">
+  <button class="btn pri" onclick="batchAll('pad')">⊞ Pad all</button>
+  <button class="btn" onclick="batchAll('scalpad')">↕ Scale+Pad all</button>
+  <button class="btn" onclick="batchSort()" title="Copy each image into a subfolder named after its rec T — no processing">⇀ Sort to T folders</button>
+  <label style="display:flex;align-items:center;gap:5px;font-size:12px">
+    <input type="checkbox" id="moveOrig"> Move originals → /originals
+  </label>
+  <div class="sp"></div>
+  <div id="bprog"></div>
+</div>
+
+<!-- Grid -->
+<div class="gwrap">
+  <div class="grid" id="grid">
+    <div class="empty"><div class="big">📂</div>Scan a folder to get started.</div>
+  </div>
+</div>
+
+<script>
+// ── T values: 512–2048 step 64, then 2304–4096 step 256 ─────────────────────
+const T_VALS = [];
+for(let t=512;t<=2048;t+=64) T_VALS.push(t);
+for(let t=2304;t<=4096;t+=256) T_VALS.push(t);
+const Q_VALS = [8,16,32,64,128,256,512];
+const ALL_ASPECTS = [[1,1],[1,1.25],[1,1.5],[1,1.75],[1,2],[1,2.5],[1,3],[1,3.5],[1,4]];
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+(function(){
+  const dl = document.getElementById('Tlist');
+  T_VALS.forEach(t=>{ const o=document.createElement('option'); o.value=t; dl.appendChild(o); });
+  // apply-on-enter for global fields
+  ['gT','gQ'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown', e=>{ if(e.key==='Enter') applyGlobal(); });
+  });
+})();
+
+// ── State ────────────────────────────────────────────────────────────────────
+let images = [];
+let mode = 1;
+let currentFolder = '';
+
+// ── Bucketing math ───────────────────────────────────────────────────────────
+function qz(v,q){ return Math.round(v/q)*q; }
+
+function getBuckets(T,q){
+  const seen=new Set(),res=[];
+  for(const[h,w]of ALL_ASPECTS){
+    const sq=Math.sqrt(h*w);
+    for(const[bh,bw]of[[h/sq*T,w/sq*T],[w/sq*T,h/sq*T]]){
+      const qh=qz(bh,q),qw=qz(bw,q),key=`${qh}|${qw}`;
+      if(!seen.has(key)){seen.add(key);res.push([qh,qw]);}
+    }
+  }
+  return res.sort((a,b)=>a[0]/a[1]-b[0]/b[1]);
+}
+
+function assignBucket(H,W,buckets){
+  return buckets.reduce((b,x)=>Math.abs(x[0]/x[1]-H/W)<Math.abs(b[0]/b[1]-H/W)?x:b);
+}
+
+function getZones(buckets){
+  const asps=[...new Set(buckets.map(b=>b[0]/b[1]))].sort((a,b)=>a-b);
+  const z=new Map();
+  for(const b of buckets){
+    const a=b[0]/b[1], i=asps.findIndex(x=>Math.abs(x-a)<1e-9);
+    z.set(b.join('|'),{
+      lo: i>0 ? (asps[i-1]+a)/2 : 0,
+      hi: i<asps.length-1 ? (asps[i+1]+a)/2 : 1e18
+    });
+  }
+  return z;
+}
+
+// ── Padding options: return [{nH,nW,dH,dW}] ─────────────────────────────────
+function padOpts(H,W,lo,hi){
+  const asp=H/W;
+  if(asp>=lo-1e-9&&asp<=hi+1e-9) return [{nH:H,nW:W,dH:0,dW:0}];
+  const o=[];
+  if(asp<lo){ // image too wide → add rows
+    let nH=Math.ceil(lo*W); while(nH/W<lo) nH++;
+    if(nH/W<=hi+1e-9) o.push({nH,nW:W,dH:nH-H,dW:0});
+  }
+  if(asp>hi){ // image too tall → add columns
+    let nW=Math.ceil(H/hi); while(H/nW>hi) nW++;
+    if(H/nW>=lo-1e-9) o.push({nH:H,nW,dH:0,dW:nW-W});
+  }
+  return o;
+}
+
+// ── Scale+Pad options: downscale one dim, pad the other ─────────────────────
+// Returns [{nH,nW,scH,scW,change}] where nH/nW=canvas, scH/scW=scaled image
+function scalpadOpts(H,W,lo,hi){
+  const asp=H/W;
+  if(asp>=lo-1e-9&&asp<=hi+1e-9) return [{nH:H,nW:W,scH:H,scW:W,change:0}];
+  const o=[];
+  if(asp>hi){ // too tall → shrink height, canvas keeps original W
+    let nH=Math.floor(hi*W); while(nH>0&&nH/W>hi) nH--;
+    if(nH>0&&nH/W>=lo-1e-9){
+      const sc=nH/H, scW=Math.round(W*sc);
+      o.push({nH,nW:W,scH:nH,scW,change:H*W-nH*scW});
+    }
+  }
+  if(asp<lo&&lo>1e-9){ // too wide → shrink width, canvas keeps original H
+    let nW=Math.floor(H/lo); while(nW>0&&H/nW<lo) nW--;
+    if(nW>0&&H/nW<=hi+1e-9){
+      const sc=nW/W, scH=Math.round(H*sc);
+      o.push({nH:H,nW,scH,scW:nW,change:H*W-nW*scH});
+    }
+  }
+  return o;
+}
+
+// ── Rec T limiters ────────────────────────────────────────────────────────────
+function getRecMin(){ return parseInt(document.getElementById('recMin').value)||512; }
+function getRecMax(){ return parseInt(document.getElementById('recMax').value)||4096; }
+function getRecStep(){ return Math.max(1,parseInt(document.getElementById('recStep').value)||64); }
+
+// ── Recommended T: smallest step-valid T >= max(H,W), clamped to [min,max] ──
+function recT(H,W){
+  const mx=Math.max(H,W);
+  const minT=getRecMin(), maxT=getRecMax(), step=getRecStep();
+  // Build valid sequence: 512, 512+step, 512+2*step, …
+  const seq=[];
+  for(let t=512;t<=4096;t+=step) seq.push(t);
+  // Filter to [minT, maxT]
+  const bounded=seq.filter(t=>t>=minT&&t<=maxT);
+  if(!bounded.length) return minT;
+  return bounded.find(t=>t>=mx)||bounded[bounded.length-1];
+}
+
+// ── Core compute ─────────────────────────────────────────────────────────────
+function computeInfo(H,W,T,q){
+  const bkts=getBuckets(T,q);
+  const zones=getZones(bkts);
+  const cur=assignBucket(H,W,bkts);
+  const curSafe=Math.max(...cur)<=T;
+  const origPx=H*W;
+
+  let target, noValid=false, fallback=false;
+
+  if(mode===1){
+    // Mode 1: only safe buckets (max side ≤ T)
+    target=bkts.filter(b=>Math.max(b[0],b[1])<=T);
+    noValid=target.length===0;
+  } else {
+    // Mode 2: only the assigned bucket + its immediate neighbours in the sorted list
+    const curIdx=bkts.findIndex(b=>b[0]===cur[0]&&b[1]===cur[1]);
+    const neighbours=[];
+    if(curIdx>0)         neighbours.push(bkts[curIdx-1]);
+                         neighbours.push(cur);
+    if(curIdx<bkts.length-1) neighbours.push(bkts[curIdx+1]);
+
+    // Prefer buckets that don't downscale (bpx >= origPx)
+    target=neighbours.filter(b=>b[0]*b[1]>=origPx);
+    if(target.length===0){
+      // All three are smaller than original — use the largest of the three
+      const biggest=neighbours.reduce((a,b)=>b[0]*b[1]>a[0]*a[1]?b:a);
+      target=[biggest];
+      fallback=true;
+    }
+  }
+
+  const zget=b=>zones.get(b.join('|'))||{lo:0,hi:1e18};
+
+  // Collect pad & scalpad candidates
+  const padCands=[], spCands=[];
+  for(const b of target){
+    const z=zget(b);
+    for(const o of padOpts(H,W,z.lo,z.hi))    padCands.push({...o,bucket:b,bpx:b[0]*b[1]});
+    for(const o of scalpadOpts(H,W,z.lo,z.hi)) spCands.push({...o,bucket:b,bpx:b[0]*b[1]});
+  }
+
+  // Mode 1: minimise pixels changed, tiebreak smallest bucket
+  // Mode 2: minimise bucket pixels, tiebreak fewest pixels changed
+  function cmpPad(a,b){
+    const da=a.dH+a.dW, db=b.dH+b.dW;
+    return mode===1 ? (da!==db?da-db:a.bpx-b.bpx) : (a.bpx!==b.bpx?a.bpx-b.bpx:da-db);
+  }
+  function cmpSp(a,b){
+    return mode===1
+      ? (a.change!==b.change?a.change-b.change:a.bpx-b.bpx)
+      : (a.bpx!==b.bpx?a.bpx-b.bpx:a.change-b.change);
+  }
+  padCands.sort(cmpPad); spCands.sort(cmpSp);
+
+  return{
+    cur, curSafe,
+    pad:     padCands[0]||null,
+    scalpad: spCands[0]||null,
+    noValid, fallback,
+    rec: recT(H,W),
+    bkts,
+    safe: bkts.filter(b=>Math.max(b[0],b[1])<=T)
+  };
+}
+
+// ── Mode toggle ──────────────────────────────────────────────────────────────
+function setMode(m){
+  mode=m;
+  document.getElementById('m1btn').classList.toggle('on',m===1);
+  document.getElementById('m2btn').classList.toggle('on',m===2);
+  document.getElementById('mhint').textContent= m===1
+    ? 'pad / scale+pad so output has max side ≤ T'
+    : 'pad / scale+pad to bucket with fewest pixels ≥ original (no downscaling)';
+  recalcAll();
+}
+
+// ── Global apply ─────────────────────────────────────────────────────────────
+function parseT(){ return parseInt(document.getElementById('gT').value)||1024; }
+function parseQ(){ return parseInt(document.getElementById('gQ').value)||64; }
+
+function applyGlobal(){
+  const T=parseT(), q=parseQ();
+  for(const img of images){
+    if(img.excluded) continue;
+    img.T=T; img.q=q;
+    const card=document.getElementById(`c${img.idx}`);
+    if(card){ card.querySelector('.card-T').value=T; card.querySelector('.card-Q').value=q; }
+  }
+  recalcAll();
+}
+
+function recalcAll(){ images.forEach(img=>{img.info=computeInfo(img.H,img.W,img.T,img.q); fillCard(img);}); updateStatus(); }
+function recalcOne(img){ img.info=computeInfo(img.H,img.W,img.T,img.q); fillCard(img); updateStatus(); }
+
+// ── Scan ─────────────────────────────────────────────────────────────────────
+async function scan(){
+  const folder=document.getElementById('folder').value.trim();
+  if(!folder){setStatus('Please enter a folder path.');return;}
+  currentFolder=folder; setStatus('Scanning…');
+  try{
+    const r=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder})});
+    const d=await r.json();
+    if(d.error){setStatus('⚠ '+d.error);return;}
+    const T=parseT(),q=parseQ();
+    images=d.images.map((img,idx)=>({...img,T,q,info:null,idx}));
+    renderGrid();
+    recalcAll();
+    document.getElementById('bbar').style.display='flex';
+  }catch(e){setStatus('⚠ '+e.message);}
+}
+
+// ── Status ───────────────────────────────────────────────────────────────────
+function setStatus(msg){document.getElementById('sbar').textContent=msg;}
+function updateStatus(){
+  if(!images.length){setStatus('No images found.');return;}
+  const T=parseT();
+  const safe=images.filter(i=>i.info?.curSafe).length;
+  let s=`${images.length} image${images.length!==1?'s':''} · ${safe} already fit within T`;
+  const recs=images.map(i=>i.info?.rec).filter(Boolean);
+  if(recs.length){
+    const freq={};recs.forEach(v=>freq[v]=(freq[v]||0)+1);
+    const top=+Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+    if(top!==T) s+=` · Suggested T for most images: ${top}`;
+  }
+  setStatus(s);
+}
+
+// ── Render grid ───────────────────────────────────────────────────────────────
+function renderGrid(){
+  const grid=document.getElementById('grid');
+  if(!images.length){grid.innerHTML='<div class="empty"><div class="big">🔍</div>No images found in folder.</div>';return;}
+  grid.innerHTML=images.map(img=>`
+<div class="card" id="c${img.idx}">
+  <div class="ctop">
+    <div class="tbox"><img src="/api/thumb?p=${encodeURIComponent(img.path)}" loading="lazy" alt=""></div>
+    <div class="cmeta">
+      <div class="cname" title="${img.name}">${img.name}</div>
+      <div class="cdims">${img.W}&thinsp;×&thinsp;${img.H} px &ensp; ratio ${(img.H/img.W).toFixed(3)}</div>
+      <div class="covr">
+        <label>T
+          <input type="text" class="card-T" list="Tlist" value="${img.T}" data-idx="${img.idx}">
+        </label>
+        <label>Q
+          <input type="text" class="card-Q" list="Qlist" value="${img.q}" data-idx="${img.idx}">
+        </label>
+        <label style="margin-left:4px;color:var(--muted);display:flex;align-items:center;gap:4px;font-size:11px">
+          <input type="checkbox" class="card-excl" data-idx="${img.idx}" style="width:12px;height:12px"> exclude
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="isec" id="c${img.idx}-info"><div style="color:var(--muted);font-size:11px">Calculating…</div></div>
+  <div class="cact">
+    <button class="ab" id="c${img.idx}-pad" onclick="doOp('pad',${img.idx})">↧ PAD</button>
+    <button class="ab sp-btn" id="c${img.idx}-scalpad" onclick="doOp('scalpad',${img.idx})">↕ SCALE+PAD</button>
+  </div>
+</div>`).join('');
+
+  // Wire up per-card inputs — always look up by stable idx, not array position
+  document.querySelectorAll('.card-T').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const img=images.find(i=>i.idx===+el.dataset.idx); if(!img) return;
+      const v=parseInt(el.value)||img.T;
+      img.T=v; el.value=v; recalcOne(img);
+    });
+  });
+  document.querySelectorAll('.card-Q').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const img=images.find(i=>i.idx===+el.dataset.idx); if(!img) return;
+      const v=parseInt(el.value)||img.q;
+      img.q=v; el.value=v; recalcOne(img);
+    });
+  });
+  document.querySelectorAll('.card-excl').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const img=images.find(i=>i.idx===+el.dataset.idx); if(!img) return;
+      img.excluded=el.checked;
+      document.getElementById(`c${img.idx}`).style.opacity=el.checked?'0.45':'1';
+    });
+  });
+}
+
+// ── Sort helpers ──────────────────────────────────────────────────────────────
+function rerender(){
+  // Re-render grid, then restore info, excluded state, and T/Q field values
+  renderGrid();
+  images.forEach(img=>{
+    if(img.info) fillCard(img);
+    const card=document.getElementById(`c${img.idx}`);
+    if(!card) return;
+    if(img.excluded){
+      card.querySelector('.card-excl').checked=true;
+      card.style.opacity='0.45';
+    }
+    card.querySelector('.card-T').value=img.T;
+    card.querySelector('.card-Q').value=img.q;
+  });
+}
+
+function sortBySize(){
+  images.sort((a,b)=>b.H*b.W-a.H*a.W);
+  rerender();
+}
+
+function sortAlpha(){
+  images.sort((a,b)=>a.name.localeCompare(b.name));
+  rerender();
+}
+
+// ── Fill info section ────────────────────────────────────────────────────────
+function bRect(bH,bW,col){
+  const mx=20,mn=5,a=bH/bW;
+  let rH,rW;
+  if(a>=1){rH=mx;rW=Math.max(mn,Math.round(mx/a));}
+  else{rW=mx;rH=Math.max(mn,Math.round(mx*a));}
+  return `<span style="display:inline-block;width:${rW}px;height:${rH}px;border:1.5px solid ${col};border-radius:1px;vertical-align:middle;margin-left:3px"></span>`;
+}
+
+function bLabel(b,T){
+  const safe=Math.max(...b)<=T;
+  const col=safe?'var(--green)':'var(--yellow)';
+  return `<span style="color:${col};font-weight:700">${b[1]}&thinsp;×&thinsp;${b[0]}</span>${bRect(b[0],b[1],col)}`
+        +`<span class="badge ${safe?'bs':'bw'}">${safe?'safe':'> T'}</span>`;
+}
+
+function fillCard(img){
+  const el=document.getElementById(`c${img.idx}-info`); if(!el)return;
+  const{cur,curSafe,pad,scalpad,noValid,fallback,rec,safe}=img.info;
+  const T=img.T;
+
+  const recBtn=rec!==T
+    ? `<span class="badge bb">rec T: ${rec}</span>`
+      +`<button class="rbtn" onclick="applyRecT(${img.idx})">use ↑</button>`
+    : '';
+
+  let html='';
+
+  // Mode 1 only: warn when no safe bucket exists (only square at any T)
+  if(noValid&&mode===1){
+    html+=`<div class="wbox">No bucket has max side ≤ ${T}. Only the 1:1 square bucket is ever safe — try T ≥ ${Math.max(img.H,img.W)}.</div>`;
+  }
+  // Mode 2 fallback: note that result involves mild downscaling
+  if(fallback){
+    const fb=pad?.bucket||scalpad?.bucket;
+    html+=`<div class="wbox">All neighbouring buckets are smaller than the original (${img.H*img.W} px). Using largest neighbour`
+         +(fb?` ${fb[1]}×${fb[0]} (${fb[0]*fb[1]} px)`:'')
+         +` — output will be slightly downscaled. Consider T ≥ ${rec}.</div>`;
+  }
+
+  function padLine(o){
+    if(!o)return '<span style="color:var(--muted)">—</span>';
+    if(o.dH===0&&o.dW===0)return `<span style="color:var(--muted)">already in zone</span> → ${bLabel(o.bucket,T)}`;
+    const dim=o.dH>0?`+${o.dH}px height`:o.dW>0?`+${o.dW}px width`:'';
+    return `<span style="color:var(--accent);font-weight:600">${o.nW}&thinsp;×&thinsp;${o.nH}</span>`
+          +` <span style="color:var(--muted)">(${dim})</span> → ${bLabel(o.bucket,T)}`;
+  }
+
+  function spLine(o){
+    if(!o)return '<span style="color:var(--muted)">—</span>';
+    if(o.change===0)return `<span style="color:var(--muted)">already in zone</span> → ${bLabel(o.bucket,T)}`;
+    const detail=o.scH===o.nH
+      ? `scale W ${img.W}→${o.scW}, pad W→${o.nW}`
+      : `scale H ${img.H}→${o.scH}, pad H→${o.nH}`;
+    return `<span style="color:var(--green);font-weight:600">${o.nW}&thinsp;×&thinsp;${o.nH}</span>`
+          +` <span style="color:var(--muted)">(${detail})</span> → ${bLabel(o.bucket,T)}`;
+  }
+
+  html+=`
+<div class="ir">
+  <span class="il">Without change</span>
+  <span class="iv">${bLabel(cur,T)} ratio ${(cur[0]/cur[1]).toFixed(3)}${recBtn}</span>
+</div>
+<div class="ir">
+  <span class="il">↧ Pad to</span>
+  <span class="iv">${padLine(pad)}</span>
+</div>
+<div class="ir">
+  <span class="il">↕ Scale+pad to</span>
+  <span class="iv">${spLine(scalpad)}</span>
+</div>`;
+
+  el.innerHTML=html;
+}
+
+// ── Apply rec T to a single card ─────────────────────────────────────────────
+function applyRecT(idx){
+  const img=images.find(i=>i.idx===idx); if(!img?.info) return;
+  img.T=img.info.rec;
+  const card=document.getElementById(`c${img.idx}`);
+  if(card) card.querySelector('.card-T').value=img.T;
+  recalcOne(img);
+}
+
+function applyRecAll(){
+  for(const img of images){
+    if(img.excluded||!img.info) continue;
+    img.T=img.info.rec;
+    const card=document.getElementById(`c${img.idx}`);
+    if(card) card.querySelector('.card-T').value=img.T;
+    img.info=computeInfo(img.H,img.W,img.T,img.q);
+    fillCard(img);
+  }
+  updateStatus();
+}
+
+// ── File operations ──────────────────────────────────────────────────────────
+function getFill(){ return document.getElementById('fill').value.split(',').map(Number); }
+
+async function doOp(type, idx){
+  const img=images[idx];
+  const opData=type==='pad'?img.info?.pad:img.info?.scalpad;
+  if(!opData||!img.info) return;
+  const btn=document.getElementById(`c${idx}-${type}`);
+  const origLabel=btn.textContent;
+  btn.textContent='…'; btn.classList.add('spin');
+  const body={path:img.path,nH:opData.nH,nW:opData.nW,bucket:opData.bucket,T:img.T,fill:getFill()};
+  try{
+    const r=await fetch(`/api/${type}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    btn.classList.remove('spin');
+    if(d.ok){btn.textContent='✓ Done';btn.classList.add('done');}
+    else{btn.textContent='✗ Error';btn.classList.add('err');btn.title=d.error;console.error(d.error);}
+  }catch(e){btn.classList.remove('spin');btn.textContent='✗ Error';btn.classList.add('err');}
+  setTimeout(()=>{btn.textContent=origLabel;btn.className='ab'+(type==='scalpad'?' sp-btn':'');},3000);
+}
+
+// ── Rescan preserving per-image state ─────────────────────────────────────────
+async function rescan(){
+  if(!currentFolder) return;
+  // Save current per-image state keyed by filename
+  const saved={};
+  for(const img of images) saved[img.name]={T:img.T,q:img.q,excluded:img.excluded};
+  setStatus('Rescanning…');
+  try{
+    const r=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:currentFolder})});
+    const d=await r.json();
+    if(d.error){setStatus('⚠ '+d.error);return;}
+    const gT=parseT(),gQ=parseQ();
+    images=d.images.map((img,idx)=>{
+      const s=saved[img.name]||{};
+      return{...img,T:s.T||gT,q:s.q||gQ,excluded:s.excluded||false,info:null,idx};
+    });
+    renderGrid();
+    // Restore excluded visual state
+    images.forEach(img=>{
+      if(img.excluded){
+        const card=document.getElementById(`c${img.idx}`);
+        if(card){ card.querySelector('.card-excl').checked=true; card.style.opacity='0.45'; }
+      }
+    });
+    recalcAll();
+  }catch(e){setStatus('⚠ rescan failed: '+e.message);}
+}
+
+async function batchAll(type){
+  const prog=document.getElementById('bprog');
+  const paths=[];
+  const active=images.filter(i=>!i.excluded);
+  for(let i=0;i<active.length;i++){
+    const img=active[i];
+    prog.textContent=`${type==='pad'?'Padding':'Scale+padding'} ${i+1}/${active.length}: ${img.name}`;
+    await doOp(type,img.idx);
+    paths.push(img.path);
+  }
+  prog.textContent=`Done — ${active.length} processed.`;
+  if(document.getElementById('moveOrig').checked&&paths.length){
+    prog.textContent+=' Moving originals…';
+    await fetch('/api/move',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paths,folder:currentFolder})});
+  }
+  prog.textContent+=' Rescanning…';
+  await rescan();
+  prog.textContent=`Done — ${active.length} processed, folder rescanned.`;
+}
+
+async function batchSort(){
+  const prog=document.getElementById('bprog');
+  const active=images.filter(i=>!i.excluded&&i.info?.rec);
+  prog.textContent=`Sorting ${active.length} image${active.length!==1?'s':''}…`;
+  const r=await fetch('/api/sortfolders',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({items:active.map(i=>({path:i.path,T:i.info.rec}))})});
+  const d=await r.json();
+  prog.textContent=`Sorted ${d.moved||0} images.`;
+  if(document.getElementById('moveOrig').checked){
+    prog.textContent+=' Moving originals…';
+    await fetch('/api/move',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paths:active.map(i=>i.path),folder:currentFolder})});
+  }
+  prog.textContent+=' Rescanning…';
+  await rescan();
+  prog.textContent=`Done — sorted ${d.moved||0} images, folder rescanned.`;
+}
+</script>
+</body>
+</html>
